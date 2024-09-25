@@ -1,7 +1,7 @@
 //include command line i/o
 use std::{char, io::{self, Read}};
 fn assigmentOptions() {
-    println!("")
+    
 }
 fn main() {
     let currentGrade: f32 = 0.0;
