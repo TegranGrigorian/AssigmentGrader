@@ -2,6 +2,8 @@
 use std::{char, io::{self, Read}};
 fn assigmentOptions() {
     println!("")
+    //printf("What assigment do you want to add?\n\n");
+// printf("Enter what assigment you want to input in. Q = quiz, L = Lab, W = Worksheet, R = Reading, E = Exam, P = Lab Practicums\n");
 }
 fn main() {
     let currentGrade: f32 = 0.0;
