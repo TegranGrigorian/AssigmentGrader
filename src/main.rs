@@ -20,38 +20,45 @@ fn proccessInput(c:&[char], info:Vec<&str>) -> char {
 fn createAssigment(x:bool,) {
    
 }
-//'global vars'
-// static mut CLASS_SUB_TOPICS:Option<HashMap<String, Vec<String>>> = None;
-// static mut CLASS_SUB_TOPIC_CONSTANTS: Option<HashMap<String, String>> = None;
-
-fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut sub_topic_constants: HashMap<String, String>) { //sub_topics:HashMap<String,String>, sub_topics_constatns:HashMap<String,String>
+fn class_name_to_key(class_name: &str) -> i64 {
+    let mut key: i64 = 0;
+    for c in class_name.chars() {
+        key += c as i64;
+    }
+    key
+}
+fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut sub_topic_constants: HashMap<String, String>) {
     loop {
         let mut class_name = String::new();
         println!("What is the name of the Class?");
         io::stdin().read_line(&mut class_name).expect("Failed to read line");
         let class_name = class_name.trim().to_string();
+
+        // Convert class_name to a unique i64 key
+        let class_key = class_name_to_key(&class_name);
+
+        // Subtopic Loop
         loop {
-            // Display current subtopics
-            if let Some(subtopics) = sub_topics.get(&class_name) {
-                println!("Current Sub Topics: {}", subtopics.join(", "));
+            if let Some(subtopics) = sub_topics.get(&class_key) {
+                let subtopic_names: Vec<String> = subtopics.iter().map(|(name, _, _)| name.clone()).collect();
+                println!("Current Sub Topics: {}", subtopic_names.join(", "));
             } else {
                 println!("Current Sub Topics: None");
             }
 
             println!("\nWhat class subtopics do you want to include (Quiz, Homework, Exam, etc)?");
-
             let mut user_input = String::new();
             io::stdin().read_line(&mut user_input).expect("Failed to read line");
             let user_input = user_input.trim().to_string();
 
             if user_input.chars().next().unwrap_or(' ') != 'G' {
-                sub_topics.entry(class_name.clone())
+                sub_topics.entry(class_key)
                     .or_insert_with(Vec::new)
-                    .push(user_input.clone());
+                    .push((user_input.clone(), String::new(), String::new()));
 
-                sub_topic_constants.insert(user_input.clone(), String::from("")); // Modify if needed
+                sub_topic_constants.insert(user_input.clone(), String::new()); // Modify if needed
                 println!("Sub topic created in class {} called {}", &class_name, user_input);
-                println!("If you want to leave the subtopic naming enter 'G'\n\n"); // 
+                println!("If you want to leave the subtopic naming enter 'G'\n\n");
             } else {
                 println!("Closing subtopic naming editor");
                 break;
@@ -59,27 +66,29 @@ fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut 
         }
 
         // Constants Input Section
-        println!("Enter in the constants for each subtopic (.2 = Quiz)");
-        if let Some(subtopics) = sub_topics.get(&class_name) {
-            for st in subtopics {
+        println!("Enter the constants for each subtopic (.2 = Quiz, etc.)");
+        if let Some(subtopics) = sub_topics.get(&class_key) {
+            for (st, _, _) in subtopics {
                 println!("Enter constant for {}:", st);
                 let mut constant_input = String::new();
-                constant_input.parse::<f32>().unwrap(); // convert str to float datatype
                 io::stdin().read_line(&mut constant_input).expect("Failed to read line");
-                let constant_value = constant_input.trim_end().to_string();
-                
-                
-                sub_topic_constants.insert(st.clone(), constant_value);
-                
-                
-                println!("Constant for {} set to {}", st, sub_topic_constants[st]);
+                let constant_input = constant_input.trim();
+
+                match constant_input.parse::<f32>() {
+                    Ok(_) => {
+                        sub_topic_constants.insert(st.clone(), constant_input.to_string());
+                        println!("Constant for {} set to {}", st, constant_input);
+                    }
+                    Err(_) => println!("Invalid input. Please enter a valid number."),
+                }
             }
-            break;
         } else {
             println!("No subtopics found for class {}", class_name);
         }
+        break;
     }
 }
+
 fn editClass(input: &String, classes: &HashMap<String, OrderedFloat<f64>>, mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, sub_topics_constants: &HashMap<String, String>) { //in rust we only borrow this value
     let mut i = 1;    
     println!("Editting class: {} ", input);
@@ -99,28 +108,33 @@ fn editClass(input: &String, classes: &HashMap<String, OrderedFloat<f64>>, mut s
         }
     } 
 }
-fn viewClass(mut userInputString: String, mut classes: &HashMap<String, OrderedFloat<f64>>, mut sub_topics: &HashMap<i64, Vec<(String, String, String)>>) { //we need to borrow these hashmaps and inputs
-    io::stdin().read_line(&mut userInputString).expect("msg");
+fn viewClass(mut user_input_string: String, classes: &HashMap<String, OrderedFloat<f64>>, sub_topics: &HashMap<i64, Vec<(String, String, String)>>) {
+    io::stdin().read_line(&mut user_input_string).expect("Failed to read input");
+    let user_input_string = user_input_string.trim(); // Remove extra spaces and line breaks
+
     let mut i = 1;
-    for (class_name, _grade) in classes {
+    for (class_name, grade) in classes {
         // Compare user input with the index as a string
-        if i.to_string() == userInputString.to_string().as_str().trim() { //condition is working, the solution is that the userinputstring is absorbing a space from the line break so we should call the trim function to deprecate the space
+        if i.to_string() == user_input_string {
             println!("Viewing {} gradebook", class_name);
-            println!("\tClass cummalitve grade: {: }%", _grade.0 * 100.0);
-            println!("\tSubtopic grades:"); 
-            let current_class = class_name;
-            for (class_name, subtopic) in sub_topics {
-                if (&class_name == &current_class) {
+            println!("\tClass cumulative grade: {:.2}%", grade.0 * 100.0); // Two decimal formatting
+            println!("\tSubtopic grades:");
+
+            let class_key = class_name_to_key(class_name);
+
+            if let Some(subtopics) = sub_topics.get(&class_key) {
+                for subtopic in subtopics {
                     println!("{:?}", subtopic);
                 }
-
+            } else {
+                println!("\tNo subtopics found for this class.");
             }
-            // println!("\tClass subtopic grades\n Quiz: {}"); // add this line eventually to the main code
+
+            // We break because we found the class we were looking for
             break;
-        } 
+        }
         i += 1;
     }
-    
 }
 fn main() {
     while (true) {
@@ -144,7 +158,7 @@ fn main() {
             println!("{}\t{}: grade is: {:.2}%", i, value, key.0 * 100.0);
             i = i + 1;
         }
-        println!("\n\nDo you want to create a new class, enter 'C'. Want to edit a existing class, enter 'E'. Or view a class, enter 'V'");
+        println!("\n\nDo you want to create a new class, enter 'C'. Want to edit a existing class, enter 'E'. Or view a class, enter 'V'. If you want to leave the program enter 'L'");
         proccesUserInput = proccessInput(&['C', 'E', 'V'], vec!["What is the name of the class you want to create?: ", "Select what class you want to edit by entering 1,2,...", "Select what class you want to view by entering 1,2,..."]); 
         if (proccesUserInput == 'C') {
             createClass(classSubTopics, classSubTopicConstants);
@@ -162,6 +176,9 @@ fn main() {
                     } 
                     i += 1;
                 }
+        } if (proccesUserInput == 'L') {
+            println!("Have a good day!!");
+            break;
         }
 
      }
