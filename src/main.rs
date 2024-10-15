@@ -1,6 +1,9 @@
 use core::f64;
 //include command line i/o
 use std::{char, collections::HashMap, env::consts, hash::Hash, io::{self, Read}};
+use std::ffi::CString;
+use std::io::Write;
+use std::path::Component::ParentDir;
 use ordered_float::OrderedFloat;
 
 fn proccessInput(c:&[char], info:Vec<&str>) -> char {
@@ -17,9 +20,7 @@ fn proccessInput(c:&[char], info:Vec<&str>) -> char {
     }
     return userInputChar;
 }
-fn createAssigment(x:bool,) {
-   
-}
+
 fn class_name_to_key(class_name: &str) -> i64 {
     let mut key: i64 = 0;
     for c in class_name.chars() {
@@ -27,17 +28,16 @@ fn class_name_to_key(class_name: &str) -> i64 {
     }
     key
 }
-fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut sub_topic_constants: HashMap<String, String>) {
+fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut sub_topic_constants: HashMap<i64, Vec<(String, f64)>>) {
     loop {
         let mut class_name = String::new();
-        println!("What is the name of the Class?");
+        print!("What is the name of the Class?");
+        io::stdout().flush().expect("Failed to flush stdout");
         io::stdin().read_line(&mut class_name).expect("Failed to read line");
         let class_name = class_name.trim().to_string();
 
-        // Convert class_name to a unique i64 key
-        let class_key = class_name_to_key(&class_name);
+        let class_key = class_name_to_key(&class_name);  // Ensure this function is defined
 
-        // Subtopic Loop
         loop {
             if let Some(subtopics) = sub_topics.get(&class_key) {
                 let subtopic_names: Vec<String> = subtopics.iter().map(|(name, _, _)| name.clone()).collect();
@@ -46,38 +46,39 @@ fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut 
                 println!("Current Sub Topics: None");
             }
 
-            println!("\nWhat class subtopics do you want to include (Quiz, Homework, Exam, etc)?");
+            println!("What class subtopics do you want to include (Quiz, Homework, Exam, etc)?");
             let mut user_input = String::new();
             io::stdin().read_line(&mut user_input).expect("Failed to read line");
-            let user_input = user_input.trim().to_string();
+            let user_input = user_input.trim();
+            if user_input.is_empty() {
+                println!("Invalid input. Please try again.");
+                continue;
+            }
 
-            if user_input.chars().next().unwrap_or(' ') != 'G' {
+            if user_input.chars().next().unwrap() != 'G' {
                 sub_topics.entry(class_key)
                     .or_insert_with(Vec::new)
-                    .push((user_input.clone(), String::new(), String::new()));
-
-                sub_topic_constants.insert(user_input.clone(), String::new()); // Modify if needed
+                    .push((user_input.to_string(), String::new(), String::new()));
                 println!("Sub topic created in class {} called {}", &class_name, user_input);
-                println!("If you want to leave the subtopic naming enter 'G'\n\n");
+                println!("If you want to leave the subtopic naming session, enter 'G'\n");
             } else {
-                println!("Closing subtopic naming editor");
+                println!("Closing subtopic naming editor.");
                 break;
             }
         }
 
-        // Constants Input Section
-        println!("Enter the constants for each subtopic (.2 = Quiz, etc.)");
+        println!("Enter the constants for each subtopic (e.g., 0.2 = Quiz, etc.):");
         if let Some(subtopics) = sub_topics.get(&class_key) {
             for (st, _, _) in subtopics {
                 println!("Enter constant for {}:", st);
                 let mut constant_input = String::new();
                 io::stdin().read_line(&mut constant_input).expect("Failed to read line");
                 let constant_input = constant_input.trim();
-
-                match constant_input.parse::<f32>() {
-                    Ok(_) => {
-                        sub_topic_constants.insert(st.clone(), constant_input.to_string());
-                        println!("Constant for {} set to {}", st, constant_input);
+                match constant_input.parse::<f64>() {
+                    Ok(value) => {
+                        let constants = sub_topic_constants.entry(class_key).or_insert_with(Vec::new);
+                        constants.push((st.clone(), value));
+                        println!("Constant for {} set to {}", st, value);
                     }
                     Err(_) => println!("Invalid input. Please enter a valid number."),
                 }
@@ -89,29 +90,86 @@ fn createClass(mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, mut 
     }
 }
 
-fn editClass(input: &String, classes: &HashMap<String, OrderedFloat<f64>>, mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, sub_topics_constants: &HashMap<String, String>) { //in rust we only borrow this value
+fn editClass(input: &String, classes: &HashMap<String, OrderedFloat<f64>>, mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, sub_topics_constants: &HashMap<i64, Vec<String, f64>>) { //in rust we only borrow this value
     let mut i = 1;    
+    let mut userInput = String::new();
+    let mut subTopicList: Vec<String> = Vec::new();
     println!("Editting class: {} ", input);
     println!("Current class subtopics:");
     for (_id, topics_vec) in sub_topics.iter() {
         // Now `topics_vec` is a Vec<(String, String, String)>
         for (class, sub_topic, _) in topics_vec {
             // Compare `input` with the `sub_topic` field
-            if input == sub_topic {
-            println!("\t{:?}",sub_topic);
-        } else {
-            //expanded else for debugging if needed
-            // println!("erm not the same class, class inputted {} class in list {}", input, class);
+            if (!subTopicList.iter().any(|topic| topic == sub_topic)) { //check if sub_topic is in the list
+                // println!("{}.) {}", i, sub_topic);
+                subTopicList.push(sub_topic.clone());  // Add to the list
+                i += 1;
+            } else {
+                println!("Skipping duplicate: {}", sub_topic);
+            }
         }
-        i += 1;
-       
+    }
+    for (index,str) in subTopicList.iter().enumerate() {
+        println!("{}.) {}", index + 1, str)
+    }
+    println!("\nPlease enter what subtopic you want to edit an assigment in:");
+    io::stdin().read_line(&mut userInput).expect("Failed to read line");
+    let mut user_input = userInput.trim().to_string();
+    for (index, subtopic) in subTopicList.iter().enumerate() {
+        if (user_input == (index + 1).to_string()) {
+            println!("The sub topic you selected is {}", subtopic);
+            println!("If you want to edit an assigment enter 'E'. If you want to create an assigment enter 'C'");
+            let mut user_input = String::new(); //wipe old data from var
+            io::stdin().read_line(&mut user_input).expect("Failed to read line");
+            let mut user_input = user_input.trim().to_string();
+            println!("{}", user_input);
+            if (user_input == String::from("C")) {
+                println!("What was the name of the assignment?");
+                let mut user_input = String::new();
+                io::stdin().read_line(&mut user_input).expect("Err");
+                let mut user_input = user_input.trim().to_string();
+                createAssigment(&user_input, &subtopic, input); //input is the class name
+            } else {
+                println!("Here are all the current assigments under this class: ");
+
+            }
         }
-    } 
+    }
+}
+fn createAssigment(name: &String,sub_topic:&String,class_name:&String) { //might need to add this later : , classes: &HashMap<String, OrderedFloat<f64>>, mut sub_topics: HashMap<i64, Vec<(String, String, String)>>, sub_topics_constants: &HashMap<String, String>
+    let mut user_input = String::new();
+    println!("Creating assigment named: {} in sub topic {}", name, sub_topic);
+    println!("\nDo you want to enter in the %('P') or the points('T')");
+    io::stdin().read_line(&mut user_input).expect("Failed to read line");
+    let mut user_input = user_input.trim().to_string();
+    if (user_input == String::from("P")) {
+        println!("\nwhat percent did you get on the assigment?( Ex.) 98%, input 98 ):");
+        let mut user_input = String::new();
+        io::stdin().read_line(&mut user_input).expect("Failed to read line");
+        let percent_scored:f32 = user_input.trim().parse::<f32>().unwrap() / 100.0;
+        println!("On assigment {}, you scored a {}%", name, String::from((percent_scored * 100.0).to_string()));
+        println!("\n\n\n\n\t Saving assigment {}, into sub-topic {}, into class {} ....",name,sub_topic,class_name);
+
+    }
+    else {
+        println!("\nhow many points was this assigment out of?");
+        let mut user_input = String::new();
+        io::stdin().read_line(&mut user_input).expect("Failed to read line");
+        let total_points:f32 = user_input.trim().parse::<f32>().unwrap();
+        println!("The assigment {} is out of {} points. How many points did you score?", name, user_input.trim().to_string());
+        let mut user_input = String::new();
+        io::stdin().read_line(&mut user_input).expect("Failed to read line");
+        let scored_points:f32 = user_input.trim().parse::<f32>().unwrap();
+        let percent_scored:f32 = scored_points / total_points;
+        println!("On the assigment {}, you scored a {}%", name, percent_scored * 100.0);
+        println!("\n\n\n\n\t Saving assigment {}, into sub-topic {}, into class {} ....",name,sub_topic,class_name);
+        //add assigment saving...
+    }
+
 }
 fn viewClass(mut user_input_string: String, classes: &HashMap<String, OrderedFloat<f64>>, sub_topics: &HashMap<i64, Vec<(String, String, String)>>) {
     io::stdin().read_line(&mut user_input_string).expect("Failed to read input");
     let user_input_string = user_input_string.trim(); // Remove extra spaces and line breaks
-
     let mut i = 1;
     for (class_name, grade) in classes {
         // Compare user input with the index as a string
@@ -129,7 +187,6 @@ fn viewClass(mut user_input_string: String, classes: &HashMap<String, OrderedFlo
             } else {
                 println!("\tNo subtopics found for this class.");
             }
-
             // We break because we found the class we were looking for
             break;
         }
@@ -137,21 +194,24 @@ fn viewClass(mut user_input_string: String, classes: &HashMap<String, OrderedFlo
     }
 }
 fn main() {
+    let mut clHash: HashMap<String, OrderedFloat<f64>> = HashMap::new(); //class name and cummalitive grade are stored in this hashmap
+    let mut clSTHas: HashMap<i64, Vec<(String, String, String)>> = HashMap::new(); //index, class name subtopic, assigment name
+    let mut clSTCHas: HashMap<i64, Vec<String, f64>> = HashMap::new(); // index, class name and, constant. We find what constant the subtopic goes to by keeping it in a numberical order.
+    let mut clSTG: HashMap<String, Vec<String,ordered_float::OrderedFloat<f64>>> = HashMap::new(); // this hashmap contains the class name, class subtopic and grade of subtopic
+    clHash.insert(String::from("EGR-112"), OrderedFloat(0.0));
+    clHash.insert(String::from("EGR-112-02"), OrderedFloat(0.980));
+    clSTHas.insert(0, vec![(String::from("EGR-112") ,String::from("Quiz"), String::from("Quiz 1"))]);
+    clSTHas.insert(1, vec![(String::from("EGR-112"), String::from("Quiz"), String::from("Quiz 2"))]);
+    clSTHas.insert(2 ,vec![(String::from("EGR-112"), String::from("Homework"), String::from("Homework 1"))]);
+
     while (true) {
-        let mut classes: HashMap<String, OrderedFloat<f64>> = HashMap::new(); //
-        let mut classSubTopics: HashMap<i64, Vec<(String, String, String)>> = HashMap::new(); //
-        let mut classSubTopicConstants: HashMap<String, String> = HashMap::new();
         let mut proccesUserInput:char;
         let mut userInputString:String = String::new();
-        classes.insert(String::from("EGR-112"), OrderedFloat(0.0));
-        classes.insert(String::from("EGR-112-02"), OrderedFloat(0.980));
-        
         let mut gradeState: String = String::new();
-        
-        classSubTopics.insert(0, vec![(String::from("EGR-112") ,String::from("Quiz"), String::from("Quiz 1"))]);
-        classSubTopics.insert(1, vec![(String::from("EGR-112"), String::from("Quiz"), String::from("Quiz 2"))]);
-        classSubTopics.insert(2 ,vec![(String::from("EGR-112"), String::from("Homework"), String::from("Homework 1"))]);
-        
+        let mut classes: HashMap<String, OrderedFloat<f64>> = clHash.clone();
+        let classSubTopics = clSTHas.clone();
+        let classSubTopicConstants= clSTCHas.clone();
+
         println!("Welcome!\n\n Your current classes and grades are\n");
         let mut i: i16 = 1;
         for (value, key,) in &classes {
@@ -180,6 +240,5 @@ fn main() {
             println!("Have a good day!!");
             break;
         }
-
      }
 }
