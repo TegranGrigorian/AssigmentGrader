@@ -360,13 +360,13 @@ fn calculateGrade(
     sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>>
 ) {
     println!("\tCalculating final grades for all classes...");
+    let mut index: i32 = 1;
 
     // Iterate over each class
     for (class_name, _class_grade) in classes {
         let mut total_class_grade = 0.0;
         let mut total_assignments = 0;
         let mut subTopicList: Vec<(String, Vec<(String, f64)>)> = Vec::new();
-        let mut index: i32 = 1;
         // Gather all assignments for each class
         for (_id, topics_vec) in sub_topics.iter() {
             for (stored_class_name, sub_topic, assignment_name, grade) in topics_vec {
@@ -405,6 +405,7 @@ fn calculateGrade(
             index, class_name,
             total_class_average * 100.0
         );
+        index += 1;
     }
 }
 fn main() {
