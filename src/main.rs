@@ -6,6 +6,8 @@ use std::hash::Hasher;
 use std::io::Write;
 use std::path::Component::ParentDir;
 use ordered_float::OrderedFloat;
+mod dataManager;
+use dataManager::{save_data,load_data,Data};
 
 fn proccessInput(c:&[char], info:Vec<&str>) -> char {
     let mut userInput: String = String::new(); //create a string for the user input
@@ -23,8 +25,7 @@ fn proccessInput(c:&[char], info:Vec<&str>) -> char {
 }
 
 fn class_name_to_key(class_name: &String) -> i64 {
-    // Generate a unique key based on the class name
-    // You might want to implement your own key generation logic here
+
     let key: i64 = class_name.chars().map(|c| c as i64).sum();
     key
 }
@@ -47,7 +48,7 @@ fn createClass(
         classes.insert(class_name.clone(), OrderedFloat(0.0)); // Initialize with 0 grade
 
         let class_key = class_name_to_key(&class_name);  // Ensure this function is defined
-        println!("Class '{}' created with key: {}", class_name, class_key);
+        // println!("Class '{}' created with key: {}", class_name, class_key);
 
         loop {
             if let Some(subtopics) = sub_topics.get(&class_key) {
@@ -69,7 +70,7 @@ fn createClass(
             if user_input.chars().next().unwrap() != 'G' {
                 sub_topics.entry(class_key)
                     .or_insert_with(Vec::new)
-                    .push((class_name.clone(), user_input.to_string(), String::new(), 0.0));
+                    .push((class_name.clone(), user_input.to_string(), String::new(),1.0));
                 println!("Sub topic created in class {} called {}", &class_name, user_input);
             } else {
                 println!("Closing subtopic naming editor.");
@@ -77,7 +78,6 @@ fn createClass(
             }
 
         }
-
         println!("Enter the constants for each subtopic (e.g., 0.2 = Quiz, etc.):");
         if let Some(subtopics) = sub_topics.get(&class_key) {
             for (_,st, _, _) in subtopics {
@@ -256,7 +256,7 @@ fn viewClass(
     let class_key = class_name_to_key(user_input_string); // Generate key from input string
 
     // Debugging: Print the generated class key
-    println!("Looking for class '{}' with key: {}", user_input_string, class_key);
+    // println!("Looking for class '{}' with key: {}", user_input_string, class_key);
 
     // Check if the class exists
     if !classes.contains_key(user_input_string) {
@@ -409,59 +409,52 @@ fn calculateGrade(
     }
 }
 fn main() {
-    let mut clHash: HashMap<String, OrderedFloat<f64>> = HashMap::new(); //class name and cumulative grade are stored in this hashmap
-    let mut clSTHas: HashMap<i64, Vec<(String, String, String, f64)>> = HashMap::new(); //index, class name, subtopic, assignment name, grade
-    let mut clSTCHas: HashMap<i64, Vec<(String, f64)>> = HashMap::new(); // index, class name and constant.
-    let mut clSTG: HashMap<i64, Vec<(String, OrderedFloat<f64>)>> = HashMap::new(); // this hashmap contains the index, class name and grade of subtopic
-
-    // Pre-existing data
-    clHash.insert(String::from("EGR-112"), OrderedFloat(1.0));
-    clHash.insert(String::from("EGR-112-02"), OrderedFloat(0.980));
-    clSTHas.insert(0, vec![(String::from("EGR-112") ,String::from("Quiz"), String::from("Quiz 1"), 0.900)]);
-    clSTHas.insert(1, vec![(String::from("EGR-112"), String::from("Quiz"), String::from("Quiz 2"), 1.0)]);
-    clSTHas.insert(2 ,vec![(String::from("EGR-112"), String::from("Homework"), String::from("Homework 1"), 0.50)]);
-    clSTG.insert(0,vec![(String::from("EGR-112"), OrderedFloat(100.0))]);
+    //file loading code!
+    let file_path = "data.json";
+    // Load pre-existing data or initialize new data
+    let mut data = load_data(file_path).unwrap_or_else(|_| Data {
+        classes: HashMap::new(),
+        sub_topics: HashMap::new(),
+        sub_topic_constants: HashMap::new(),
+        sub_topic_grades: HashMap::new(),
+    });
     let mut proccesUserInput: char;
     let mut userInputString: String = String::new();
     while true {
         userInputString = String::new();
         println!("Welcome!\n\n Your current classes and grades are\n");
         let mut i: i16 = 1;
-        // for (value, key,) in &clHash {
-        //     println!("{}\t{}: grade is: {:.2}%", i, value, key.0 * 100.0);
-        //     i += 1;
-        // }
-        calculateGrade(&mut clHash,& mut clSTHas, &mut clSTG);
+        calculateGrade(&mut data.classes,& mut data.sub_topics, &mut data.sub_topic_grades);
         println!("\n\nDo you want to create a new class, enter 'C'. Want to edit an existing class, enter 'E'. Or view a class, enter 'V'. If you want to leave the program enter 'L'");
         proccesUserInput = proccessInput(&['C', 'E', 'V'], vec!["What is the name of the class you want to create?: ", "Select what class you want to edit by entering 1,2,...", "Select what class you want to view by entering 1,2,..."]);
 
         if proccesUserInput == 'C' {
-            createClass(&mut clSTHas, &mut clSTCHas, &mut clHash);
+            createClass(&mut data.sub_topics, &mut data.sub_topic_constants, &mut data.classes);
         } else if proccesUserInput == 'V' {
             io::stdin().read_line(&mut userInputString).expect("Failed to read input");
             let mut i = 1;
-            for (class_name, _) in &clHash {
+            for (class_name, _) in &data.classes {
                 if i.to_string() == userInputString.trim() {
-                    viewClass(&class_name, &clHash, &clSTHas.clone(), &clSTCHas.clone(), &mut clSTG.clone());
-                    // viewClass(&class_name, &clHash, &clSTHas);
+                    viewClass(&class_name, &data.classes, &data.sub_topics.clone(), &data.sub_topic_constants.clone(), &mut data.sub_topic_grades.clone());
                     break;
                 }
                 i += 1;
             }
-            // viewClass(&mut userInputString, &clHash, &classSubTopics, &classSubTopicConstants, &classSubTopicGrades);
         } else if proccesUserInput == 'E' {
             io::stdin().read_line(&mut userInputString).expect("Failed to read input");
             let mut i = 1;
-            for (class_name, _) in &clHash {
+            for (class_name, _) in &data.classes {
                 if i.to_string() == userInputString.trim() {
-                    editClass(&class_name, &clHash, &mut clSTHas, &clSTCHas);
+                    editClass(&class_name, &data.classes, &mut data.sub_topics, &data.sub_topic_constants);
                     break;
                 }
                 i += 1;
             }
         } else if proccesUserInput == 'L' {
             println!("Have a good day!!");
+            save_data(file_path, &data).expect("Error saving data");
             break;
         }
     }
+
 }
