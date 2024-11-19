@@ -7,3 +7,5 @@ This program is written in rust which means its cool but also annoying asf. I'll
 The program can create classes, calculate the grade, input grades, output assigment names and grade them and most importantly, is on the terminal so it looks cool
 
 I should of made this in C or any other sensible launague :(
+
+If you want to actually run the file, open target then debug then the .exe file!
