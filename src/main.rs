@@ -70,7 +70,7 @@ fn createClass(
             if user_input.chars().next().unwrap() != 'G' {
                 sub_topics.entry(class_key)
                     .or_insert_with(Vec::new)
-                    .push((class_name.clone(), user_input.to_string(), String::new(),1.0));
+                    .push((class_name.clone(), user_input.to_string(), String::from("NULL"),1.0));
                 println!("Sub topic created in class {} called {}", &class_name, user_input);
             } else {
                 println!("Closing subtopic naming editor.");
@@ -193,6 +193,9 @@ fn editClass(
                 for (id, assignments) in sub_topics.iter() {
                     for (class, sub_topic, assign, grade) in assignments {
                         if sub_topic == selected_subtopic {
+                            if (assign == &String::from("NULL")) {
+                                continue;
+                            }
                             println!("\t{}.) {} - Grade: {}%", i, assign, grade * 100.0);
                             assignments_to_edit.push((*id, assign.clone()));
                             i += 1;
@@ -269,7 +272,7 @@ fn viewClass(
         Some(topics) => {
             println!("Subtopics for class '{}':", user_input_string);
             for (name, _, _, _) in topics {
-                println!("- {}", name);
+                //pooop
             }
         }
         None => {
@@ -282,7 +285,6 @@ fn viewClass(
             if class_name == user_input_string {
                 total_class_grade += grade;
                 total_assignments += 1;
-
                 // Add assignment to subtopic
                 let entry = subTopicList.iter_mut().find(|(topic, _)| topic == sub_topic);
                 if let Some((_, assignments)) = entry {
@@ -318,12 +320,25 @@ fn viewClass(
 
     // Print subtopic list with average grades and assignments
     for (index, (subtopic, assignments)) in subTopicList.iter().enumerate() {
-        let subtopic_average = assignments.iter().map(|(_, grade)| *grade).sum::<f64>() / assignments.len() as f64;
+        let mut tot_subtopic_score:f64 = 0.0;
+        let mut number:i32 = 0;
+        for (name, score) in assignments {
+            if (name == &String::from("NULL")) {
+                continue;
+            } else {
+                tot_subtopic_score = tot_subtopic_score + score;
+                number += 1;
+            }
+        }
+        let subtopic_average: f64 = tot_subtopic_score / number as f64;
         println!("{}. {} - Subtopic Grade: {:.2}%", index + 1, subtopic, subtopic_average * 100.0);
 
         // Print assignments for the selected subtopic
         for (assignment_name, grade) in assignments {
-            println!("   Assignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
+            if (assignment_name == &String::from("NULL")) {
+                continue;
+            }
+            println!("\tAssignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
         }
     }
 
@@ -343,6 +358,9 @@ fn viewClass(
             // Print assignments for the selected subtopic
             if let Some(assignments) = subTopicList.iter().find(|(topic, _)| topic == selected_subtopic) {
                 for (assignment_name, grade) in &assignments.1 {
+                    if (assignment_name == &String::from("NULL")) {
+                        continue;
+                    }
                     println!("Assignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
                 }
             }
@@ -359,7 +377,6 @@ fn calculateGrade(
     sub_topics: &HashMap<i64, Vec<(String, String, String, f64)>>,
     sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>>
 ) {
-    println!("\tCalculating final grades for all classes...");
     let mut index: i32 = 1;
 
     // Iterate over each class
@@ -370,6 +387,9 @@ fn calculateGrade(
         // Gather all assignments for each class
         for (_id, topics_vec) in sub_topics.iter() {
             for (stored_class_name, sub_topic, assignment_name, grade) in topics_vec {
+                if (assignment_name == &String::from("NULL")) {
+                    continue;
+                }
                 if stored_class_name == class_name {
                     total_class_grade += grade;
                     total_assignments += 1;
