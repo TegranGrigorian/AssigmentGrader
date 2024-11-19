@@ -245,21 +245,17 @@ fn editClass(
         println!("Invalid input. Please enter a number.");
     }
 }
+
 fn viewClass(
     user_input_string: &String,
     classes: &HashMap<String, OrderedFloat<f64>>,
     sub_topics: &HashMap<i64, Vec<(String, String, String, f64)>>,
     sub_topic_constants: &HashMap<i64, Vec<(String, f64)>>,
-    sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>>, // Make this mutable
+    sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>>,
 ) {
-    let mut userInput = String::new();
-    let mut subTopicList: Vec<(String, Vec<(String, f64)>)> = Vec::new(); // Store subtopic and its assignments with grades
-    let mut total_class_grade = 0.0;
-    let mut total_assignments = 0;
-    let class_key = class_name_to_key(user_input_string); // Generate key from input string
-
-    // Debugging: Print the generated class key
-    // println!("Looking for class '{}' with key: {}", user_input_string, class_key);
+    let mut user_input = String::new();
+    let mut sub_topic_list: Vec<(String, Vec<(String, f64)>)> = Vec::new(); // Store subtopic and its assignments with grades
+    let class_key = class_name_to_key(&user_input_string);
 
     // Check if the class exists
     if !classes.contains_key(user_input_string) {
@@ -267,101 +263,65 @@ fn viewClass(
         return;
     }
 
-    // Attempt to retrieve subtopics using class_key
-    match sub_topics.get(&class_key) {
-        Some(topics) => {
-            println!("Subtopics for class '{}':", user_input_string);
-            for (name, _, _, _) in topics {
-                //pooop
-            }
-        }
-        None => {
-            println!("No subtopics found for class '{}'.", user_input_string);
-        }
+    // Display the class grade (already calculated by `calculateGrade`)
+    if let Some(final_grade) = classes.get(user_input_string) {
+        println!("Class '{}' - Final Grade: {:.2}%", user_input_string, final_grade * 100.0);
+    } else {
+        println!("No grade found for class '{}'", user_input_string);
     }
-    // Calculate total grade for the class and average for each subtopic
+
+    // Calculate subtopic grades and accumulate class grades
     for (_id, topics_vec) in sub_topics.iter() {
         for (class_name, sub_topic, assignment_name, grade) in topics_vec {
             if class_name == user_input_string {
-                total_class_grade += grade;
-                total_assignments += 1;
                 // Add assignment to subtopic
-                let entry = subTopicList.iter_mut().find(|(topic, _)| topic == sub_topic);
+                let entry = sub_topic_list.iter_mut().find(|(topic, _)| topic == sub_topic);
                 if let Some((_, assignments)) = entry {
                     assignments.push((assignment_name.clone(), *grade)); // Add the assignment and grade
                 } else {
-                    subTopicList.push((sub_topic.clone(), vec![(assignment_name.clone(), *grade)])); // Initialize with the first assignment
+                    sub_topic_list.push((sub_topic.clone(), vec![(assignment_name.clone(), *grade)])); // Initialize with the first assignment
                 }
             }
         }
     }
 
-    // Calculate average grades for each subtopic
-    let mut subtopic_averages: HashMap<String, OrderedFloat<f64>> = HashMap::new();
-    for (subtopic, assignments) in &subTopicList {
-        let average_grade = assignments.iter().map(|(_, grade)| *grade).sum::<f64>() / assignments.len() as f64;
-        subtopic_averages.insert(subtopic.clone(), OrderedFloat(average_grade));
-
-        // Push the average grade to the sub_topic_grades hashmap
-        sub_topic_grades.entry(0) // You may need to adjust the key based on your logic
-            .or_insert_with(Vec::new)
-            .push((subtopic.clone(), OrderedFloat(average_grade)));
-    }
-
-    let total_class_average = if total_assignments > 0 {
-        total_class_grade / total_assignments as f64
-    } else {
-        0.0
-    };
-
-    // Display class information
-    println!("Viewing class: {} - Total grade: {:.2}%", user_input_string, total_class_average * 100.0);
-    println!("Current class subtopics:");
-
     // Print subtopic list with average grades and assignments
-    for (index, (subtopic, assignments)) in subTopicList.iter().enumerate() {
-        let mut tot_subtopic_score:f64 = 0.0;
-        let mut number:i32 = 0;
-        for (name, score) in assignments {
-            if (name == &String::from("NULL")) {
-                continue;
-            } else {
-                tot_subtopic_score = tot_subtopic_score + score;
-                number += 1;
-            }
-        }
-        let subtopic_average: f64 = tot_subtopic_score / number as f64;
+    println!("\nCurrent class subtopics:");
+    for (index, (subtopic, assignments)) in sub_topic_list.iter().enumerate() {
+        let total_subtopic_score: f64 = assignments.iter().map(|(_, grade)| *grade).sum();
+        let subtopic_average = total_subtopic_score / assignments.len() as f64;
+
+        // Display subtopic grade
         println!("{}. {} - Subtopic Grade: {:.2}%", index + 1, subtopic, subtopic_average * 100.0);
 
         // Print assignments for the selected subtopic
         for (assignment_name, grade) in assignments {
-            if (assignment_name == &String::from("NULL")) {
-                continue;
+            if assignment_name != "NULL" {
+                println!("\tAssignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
             }
-            println!("\tAssignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
         }
     }
 
+    // Prompt for subtopic selection
     println!("\nPlease select a subtopic number to view assignments or enter 'X' to exit:");
-    io::stdin().read_line(&mut userInput).expect("Failed to read input");
-    let user_input = userInput.trim();
+    io::stdin().read_line(&mut user_input).expect("Failed to read input");
+    let user_input = user_input.trim();
 
     if user_input.eq_ignore_ascii_case("X") {
         return; // Exit the function if 'X' is entered
     }
 
     if let Ok(selected_index) = user_input.parse::<usize>() {
-        if selected_index > 0 && selected_index <= subTopicList.len() {
-            let selected_subtopic = &subTopicList[selected_index - 1].0;
+        if selected_index > 0 && selected_index <= sub_topic_list.len() {
+            let selected_subtopic = &sub_topic_list[selected_index - 1].0;
             println!("\nAssignments under the subtopic '{}':", selected_subtopic);
 
             // Print assignments for the selected subtopic
-            if let Some(assignments) = subTopicList.iter().find(|(topic, _)| topic == selected_subtopic) {
+            if let Some(assignments) = sub_topic_list.iter().find(|(topic, _)| topic == selected_subtopic) {
                 for (assignment_name, grade) in &assignments.1 {
-                    if (assignment_name == &String::from("NULL")) {
-                        continue;
+                    if assignment_name != "NULL" {
+                        println!("Assignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
                     }
-                    println!("Assignment: {}, Grade: {:.2}%", assignment_name, grade * 100.0);
                 }
             }
         } else {
@@ -371,63 +331,73 @@ fn viewClass(
         println!("Invalid input. Please enter a number or 'X' to exit.");
     }
 }
-
 fn calculateGrade(
-    classes: &HashMap<String, OrderedFloat<f64>>,
-    sub_topics: &HashMap<i64, Vec<(String, String, String, f64)>>,
-    sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>>
+    classes: &mut HashMap<String, OrderedFloat<f64>>, // Class grades (mutable to update with final grade)
+    sub_topics: &HashMap<i64, Vec<(String, String, String, f64)>>, // Subtopics with assignments
+    sub_topic_constants: &HashMap<i64, Vec<(String, f64)>>, // Constants for each subtopic
+    sub_topic_grades: &mut HashMap<i64, Vec<(String, OrderedFloat<f64>)>> // Calculated subtopic grades
 ) {
     let mut index: i32 = 1;
 
-    // Iterate over each class
-    for (class_name, _class_grade) in classes {
-        let mut total_class_grade = 0.0;
+    // Iterate over each class and calculate the final grade
+    let mut final_grades = HashMap::new(); // Temporary hashmap to store final grades
+
+    for (class_name, _class_grade) in classes.iter_mut() {
+        let mut total_weighted_subtopic_grades = 0.0;
+        let mut total_weight = 0.0; // This will hold the total sum of subtopic constants
         let mut total_assignments = 0;
-        let mut subTopicList: Vec<(String, Vec<(String, f64)>)> = Vec::new();
-        // Gather all assignments for each class
+
+        // Iterate over the subtopics and their assignments
         for (_id, topics_vec) in sub_topics.iter() {
             for (stored_class_name, sub_topic, assignment_name, grade) in topics_vec {
-                if (assignment_name == &String::from("NULL")) {
+                if assignment_name == &String::from("NULL") {
                     continue;
                 }
                 if stored_class_name == class_name {
-                    total_class_grade += grade;
                     total_assignments += 1;
 
-                    // Add assignment to subtopic
-                    let entry = subTopicList.iter_mut().find(|(topic, _)| topic == sub_topic);
-                    if let Some((_, assignments)) = entry {
-                        assignments.push((assignment_name.clone(), *grade));
-                    } else {
-                        subTopicList.push((sub_topic.clone(), vec![(assignment_name.clone(), *grade)]));
-                    }
+                    // Find the constant for the subtopic (if any)
+                    let subtopic_constant = sub_topic_constants
+                        .iter()
+                        .find(|(_, subtopics)| subtopics.iter().any(|(topic, _)| topic == sub_topic))
+                        .and_then(|(_, subtopics)| subtopics.iter().find(|(topic, _)| topic == sub_topic))
+                        .map(|(_, constant)| *constant) // Dereference the constant
+                        .unwrap_or(1.0); // Default to 1.0 if no constant is found
+
+                    // Calculate the weighted grade for the assignment
+                    let weighted_grade = *grade * subtopic_constant;
+
+                    // Accumulate weighted grades and constants
+                    total_weighted_subtopic_grades += weighted_grade;
+                    total_weight += subtopic_constant;
                 }
             }
         }
 
-        // Calculate average grades for each subtopic
-        for (subtopic, assignments) in &subTopicList {
-            let average_grade = assignments.iter().map(|(_, grade)| *grade).sum::<f64>() / assignments.len() as f64;
-            sub_topic_grades.entry(0) // You may need to adjust the key based on your logic
-                .or_insert_with(Vec::new)
-                .push((subtopic.clone(), OrderedFloat(average_grade)));
-        }
-
-        // Calculate and print the final average for the class
-        let total_class_average = if total_assignments > 0 {
-            total_class_grade / total_assignments as f64
+        // Calculate the final class grade as the weighted average of the subtopics
+        let final_class_grade = if total_weight > 0.0 {
+            total_weighted_subtopic_grades / total_weight
         } else {
             0.0
         };
 
+        // Store the final grade temporarily in the hashmap
+        final_grades.insert(class_name.clone(), OrderedFloat(final_class_grade));
+
+        // Display the class information and final grade
         println!(
             "\t{}.) Class: {} - Final Grade: {:.2}%",
-            index, class_name,
-            total_class_average * 100.0
+            index, class_name, final_class_grade * 100.0
         );
         index += 1;
     }
+
+    // Now, after calculating all grades, update the original classes hashmap
+    for (class_name, final_grade) in final_grades {
+        classes.insert(class_name, final_grade); // Insert the final grade into the original hashmap
+    }
 }
+
 fn main() {
     //file loading code!
     let file_path = "data.json";
@@ -444,7 +414,7 @@ fn main() {
         userInputString = String::new();
         println!("Welcome!\n\n Your current classes and grades are\n");
         let mut i: i16 = 1;
-        calculateGrade(&mut data.classes,& mut data.sub_topics, &mut data.sub_topic_grades);
+        calculateGrade(&mut data.classes,& mut data.sub_topics, &mut data.sub_topic_constants, &mut data.sub_topic_grades);
         println!("\n\nDo you want to create a new class, enter 'C'. Want to edit an existing class, enter 'E'. Or view a class, enter 'V'. If you want to leave the program enter 'L'");
         proccesUserInput = proccessInput(&['C', 'E', 'V'], vec!["What is the name of the class you want to create?: ", "Select what class you want to edit by entering 1,2,...", "Select what class you want to view by entering 1,2,..."]);
 
