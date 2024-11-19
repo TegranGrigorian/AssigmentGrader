@@ -8,7 +8,7 @@ use std::path::Component::ParentDir;
 use ordered_float::OrderedFloat;
 mod dataManager;
 use dataManager::{save_data,load_data,Data};
-
+use webbrowser;
 fn proccessInput(c:&[char], info:Vec<&str>) -> char {
     let mut userInput: String = String::new(); //create a string for the user input
     io::stdin().read_line(&mut userInput).expect("Please enter a valid character"); //scan the user input
@@ -43,7 +43,10 @@ fn createClass(
         io::stdout().flush().expect("Failed to flush stdout");
         io::stdin().read_line(&mut class_name).expect("Failed to read line");
         let class_name = class_name.trim().to_string();
+        if (class_name == String::from("Waltauh")) {
+            webbrowser::open("https://www.youtube.com/watch?v=L3duHdRXX04&ab_channel=JohnRonalds");
 
+        }
         // Add the class to the classes HashMap
         classes.insert(class_name.clone(), OrderedFloat(0.0)); // Initialize with 0 grade
 
