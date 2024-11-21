@@ -276,6 +276,9 @@ fn viewClass(
     // Calculate subtopic grades and accumulate class grades
     for (_id, topics_vec) in sub_topics.iter() {
         for (class_name, sub_topic, assignment_name, grade) in topics_vec {
+            if (assignment_name == &String::from("NULL")) {
+                continue;
+            }
             if class_name == user_input_string {
                 // Add assignment to subtopic
                 let entry = sub_topic_list.iter_mut().find(|(topic, _)| topic == sub_topic);
@@ -349,13 +352,13 @@ fn calculateGrade(
         let mut total_weighted_subtopic_grades = 0.0;
         let mut total_weight = 0.0; // This will hold the total sum of subtopic constants
         let mut total_assignments = 0;
-
         // Iterate over the subtopics and their assignments
         for (_id, topics_vec) in sub_topics.iter() {
             for (stored_class_name, sub_topic, assignment_name, grade) in topics_vec {
                 if assignment_name == &String::from("NULL") {
                     continue;
                 }
+                
                 if stored_class_name == class_name {
                     total_assignments += 1;
 
@@ -366,31 +369,32 @@ fn calculateGrade(
                         .and_then(|(_, subtopics)| subtopics.iter().find(|(topic, _)| topic == sub_topic))
                         .map(|(_, constant)| *constant) // Dereference the constant
                         .unwrap_or(1.0); // Default to 1.0 if no constant is found
-
                     // Calculate the weighted grade for the assignment
                     let weighted_grade = *grade * subtopic_constant;
 
                     // Accumulate weighted grades and constants
                     total_weighted_subtopic_grades += weighted_grade;
-                    total_weight += subtopic_constant;
+                    // total_weight += subtopic_constant;
                 }
             }
         }
 
         // Calculate the final class grade as the weighted average of the subtopics
-        let final_class_grade = if total_weight > 0.0 {
-            total_weighted_subtopic_grades / total_weight
-        } else {
-            0.0
-        };
+        // let final_class_grade = if total_weight > 0.0 {
+        //     total_weighted_subtopic_grades / total_weight
+        // } else {
+        //     0.0
+        // };
 
         // Store the final grade temporarily in the hashmap
+        let mut final_class_grade = total_weighted_subtopic_grades;
+        
         final_grades.insert(class_name.clone(), OrderedFloat(final_class_grade));
 
         // Display the class information and final grade
         println!(
             "\t{}.) Class: {} - Final Grade: {:.2}%",
-            index, class_name, final_class_grade * 100.0
+            index, class_name, total_weighted_subtopic_grades * 100.0
         );
         index += 1;
     }
